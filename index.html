@@ -631,22 +631,24 @@ fontFamily: {
                                 
                                 <!-- Transport Route ABOVE the card -->
                                 <div v-if="item.nextTransport && item.nextTransport.mode" class="mb-3">
-                                    <div v-if="item.nextTransport.isRichText" v-html="item.nextTransport.mode" class="text-xs text-slate-600 bg-white/50 p-2 rounded-lg border border-slate-100"></div>
+                                    <div v-if="item.nextTransport.isRichText" 
+                                         v-html="item.nextTransport.mode" 
+                                         class="text-[11px] text-slate-600 bg-white/60 p-2.5 rounded-lg border border-slate-200/60 leading-relaxed break-all [&_*]:!text-[11px] [&_*]:!font-medium [&_*]:!text-slate-600 [&_*]:!bg-transparent [&_img]:hidden">
+                                    </div>
+
                                     <div v-else class="flex items-center">
                                         <div class="relative flex flex-col items-center mr-3">
                                             <div class="w-[2px] h-4 bg-slate-200 absolute -top-4"></div>
                                             <div class="w-2 h-2 rounded-full bg-slate-300"></div>
                                             <div class="w-[2px] h-4 bg-slate-200"></div>
                                         </div>
-                                        
                                         <span class="px-3 py-1.5 rounded-lg text-xs border backdrop-blur-sm shadow-sm" 
                                               :class="{'font-bold': item.nextTransport.isBold, 'italic': item.nextTransport.isItalic}"
                                               :style="{ backgroundColor: item.nextTransport.useFrame ? getTransportColor(item.nextTransport.style?.color).bg : 'transparent', borderColor: item.nextTransport.useFrame ? getTransportColor(item.nextTransport.style?.color).border : 'transparent', color: getTransportColor(item.nextTransport.style?.color).textDark }">
                                             <i class="fa-solid fa-location-arrow mr-1 opacity-70"></i> {{ item.nextTransport.mode }}
                                         </span>
                                     </div>
-                                </div>
-                                
+                                </div>                                
                                 <div @click="!isSorting.itinerary && openModal('activity', item)" class="bg-card rounded-xl border border-slate-100 hover:border-gold/50 transition-all shadow-soft relative overflow-hidden active:scale-98 flex flex-col group" :class="isSorting.itinerary ? '' : 'cursor-pointer'">
                                     
                                     <!-- Drag Handle (Moved Here) -->
