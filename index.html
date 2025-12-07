@@ -1091,7 +1091,7 @@ fontFamily: {
                         <i class="fa-solid fa-plus font-bold"></i>
                     </button>
                 </div>
-                                    
+
                 <div id="packing-list" class="space-y-2">
                     <div v-for="(item, idx) in packingList" :key="item.id" class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3 group" :class="isSorting.packing ? '' : 'cursor-pointer'" @click="!isSorting.packing && togglePacking(packingList.indexOf(item))">
                         <!-- Drag Handle -->
@@ -2740,39 +2740,62 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             const selectCurrency = (c) => { currencySearch.value = c; calcCurrency.value = c; showCurrencyList.value = false; };
             const locateMe = () => initMap();
             const viewMap = (map) => { zoomedImage.value = map.image; };
-// --- ★★★ 新版存檔函式：分流處理 ★★★ ---
+// --- ★★★ V4 存檔函式：交通同步版 ★★★ ---
             const saveToLocal = () => {
-                // 如果是雲端更新觸發的變動，不要再寫回雲端 (防止無限迴圈)
                 if (isRemoteUpdate.value) return;
 
-                // 1. 私有資料：存每個人自己的手機 (Local Storage)
+                // 1. 處理【私有資料】(存手機)
+                // 從行程中取出打卡記憶
+                const myMemories = {};
+                itinerary.value.forEach(item => {
+                    if (item.checkedIn || item.checkInPhoto || item.checkInThoughts) {
+                        myMemories[item.id] = {
+                            checkedIn: item.checkedIn,
+                            checkInPhoto: item.checkInPhoto,
+                            checkInThoughts: item.checkInThoughts,
+                            checkInDate: item.checkInDate,
+                            checkInTime: item.checkInTime
+                        };
+                    }
+                });
+
                 const myPrivateData = {
                     packing: packingList.value,
-                    memories: memories.value,
-                    // 設定類也可以放這
+                    flights: flights.value,          // ✈️ 航班 (私有)
+                    tickets: collectedTickets.value, // 🎟️ 票券 (私有)
+                    memoriesMap: myMemories,         // 📸 回憶 (私有)
+                    vjwImage: tripData.value.vjwImage // 🇯🇵 VJW 圖片 (私有)
+                    // ★ 注意：trains (交通) 已經移除了，因為要改成共用
                 };
-                localStorage.setItem('trip_private_v1', JSON.stringify(myPrivateData));
+                localStorage.setItem('trip_private_v4', JSON.stringify(myPrivateData));
 
-                // 2. 共用資料：傳送到 Firebase 給所有人看
+                // 2. 處理【共用資料】(上傳雲端)
+                // 清理行程中的打卡隱私
+                const cleanItinerary = itinerary.value.map(item => {
+                    const { checkedIn, checkInPhoto, checkInThoughts, checkInDate, checkInTime, ...publicPlan } = item;
+                    return publicPlan;
+                });
+
+                // 清理 tripData (移除 VJW)
+                const publicTripData = { ...tripData.value };
+                delete publicTripData.vjwImage; 
+
                 const sharedData = {
-                    trip: tripData.value,          // 行程標題/日期
-                    itinerary: itinerary.value,    // 行程列表
-                    hotels: hotels.value,          // 住宿
-                    expenses: expenses.value,      // 錢包/記帳
-                    flights: flights.value,        // 航班
-                    tickets: collectedTickets.value, // 票券夾
-                    trains: trainTickets.value,    // 車票
-                    maps: subwayMaps.value,        // 地圖
-                    phrases: jpPhrases.value,      // 翻譯
-                    lastUpdated: new Date().toISOString() // 壓個時間戳記
+                    trip: publicTripData,
+                    itinerary: cleanItinerary,
+                    hotels: hotels.value,          // 🏨 飯店 (同步)
+                    expenses: expenses.value,      // 💰 記帳 (同步)
+                    maps: subwayMaps.value,        // 🗺️ 地圖 (同步)
+                    phrases: jpPhrases.value,      // 🗣️ 單字 (同步)
+                    trains: trainTickets.value,    // 🚆 交通 (同步！從私有移來這裡)
+                    lastUpdated: new Date().toISOString()
                 };
 
-                // 寫入雲端 (使用 set 會覆蓋該路徑下的資料)
                 db.ref(tripId).set(sharedData).catch(err => {
                     console.error("同步失敗:", err);
-                    alert("同步失敗！請檢查網路連線");
                 });
             };
+
             const generateAITip = () => { const tips = ["嵐山小火車建議提前一個月預訂", "清水寺周邊坂道多建議穿好走的鞋", "搭乘公車通常後門上車前門付款", "USJ 快速通關券建議開賣當天搶購"]; tripData.value.days[selectedDayIndex.value].tips = tips[Math.floor(Math.random() * tips.length)]; };
             const sendAIMessage = () => {
                 const text = aiInput.value.trim();
@@ -2801,57 +2824,69 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             const getSticker = (id) => { const seed = getPseudoRandom(id); return stickers[seed % stickers.length]; };
             const getStickerStyle = (id) => { const seed = getPseudoRandom(id); const rotate = (seed % 60) - 30; return { transform: `rotate(${rotate}deg)` }; };
 
-// --- ★★★ 新版啟動函式：讀取私有 + 監聽雲端 ★★★ ---
+// --- ★★★ V4 啟動函式：從雲端抓取交通資訊 ★★★ ---
             onMounted(() => {
-                // 1. 讀取「私有」資料 (行李、回憶)
+                // 1. 讀取私有資料
+                let localMemoriesMap = {};
+                let localVJW = null;
+                
                 try {
-                    const localSaved = localStorage.getItem('trip_private_v1');
+                    // 注意：key 改成 v4 以免讀到舊格式混亂
+                    const localSaved = localStorage.getItem('trip_private_v4'); 
                     if (localSaved) {
                         const d = JSON.parse(localSaved);
                         packingList.value = d.packing || [];
-                        memories.value = d.memories || [];
+                        flights.value = d.flights || [];
+                        // trains 已經不讀這裡了
+                        collectedTickets.value = d.tickets || [];
+                        localMemoriesMap = d.memoriesMap || {};
+                        localVJW = d.vjwImage;
+                        
+                        if (localVJW) tripData.value.vjwImage = localVJW;
                     }
                 } catch (e) { console.error("Local Load Error", e); }
 
-                // 2. 建立雲端監聽 (Realtime Listener)
-                // 只要 Firebase 上的資料一變 (不管是誰改的)，這裡就會收到通知
+                // 2. 監聽雲端
                 const dataRef = db.ref(tripId);
                 
                 dataRef.on('value', (snapshot) => {
                     const remoteData = snapshot.val();
                     if (remoteData) {
-                        // 開啟鎖，避免寫入觸發無限迴圈
                         isRemoteUpdate.value = true;
 
-                        // 更新 Vue 的資料
+                        // 更新 TripData (保護本地 VJW)
+                        const currentVJW = tripData.value.vjwImage; 
                         tripData.value = remoteData.trip || tripData.value;
-                        
-                        // 處理陣列 (如果雲端是空的，要給空陣列，不然會報錯)
-                        itinerary.value = remoteData.itinerary || [];
-                        flights.value = remoteData.flights || [];
+                        if (currentVJW) tripData.value.vjwImage = currentVJW;
+                        else if (localVJW) tripData.value.vjwImage = localVJW;
+
+                        // 同步項目
                         hotels.value = remoteData.hotels || [];
                         expenses.value = remoteData.expenses || [];
                         subwayMaps.value = remoteData.maps || [];
-                        trainTickets.value = remoteData.trains || [];
-                        collectedTickets.value = remoteData.tickets || [];
                         jpPhrases.value = remoteData.phrases || jpPhrases.value;
+                        trainTickets.value = remoteData.trains || []; // ★ 交通資訊從雲端讀取
 
-                        // 匯率還是要抓新的
+                        // 合併行程與打卡記憶
+                        const cloudItinerary = remoteData.itinerary || [];
+                        itinerary.value = cloudItinerary.map(plan => {
+                            const myMemory = localMemoriesMap[plan.id];
+                            if (myMemory) return { ...plan, ...myMemory };
+                            return plan;
+                        });
+
                         fetchRates();
-                        
-                        // 地圖初始化 (如果有切換到地圖頁)
                         if(currentTab.value === 'itinerary') setTimeout(initMap, 500);
 
-                        // 等 Vue 更新完畢後，解鎖
                         nextTick(() => {
                             isRemoteUpdate.value = false;
                         });
                     }
                 });
                 
-                // 預設初始化
                 setTimeout(initMap, 500);
             });
+            
             return {
                 // 狀態變數
                 currentTab, selectedDayIndex, showModal, modalType, modalTitle, form, isEditing,
