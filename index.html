@@ -731,10 +731,28 @@ fontFamily: {
                         <div v-if="isSorting.flights" class="absolute -top-3 -right-2 z-20 bg-white border border-slate-200 rounded-full p-1.5 shadow-md drag-handle text-slate-400 cursor-grab active:cursor-grabbing"><i class="fa-solid fa-bars text-sm"></i></div>
                         <!-- FLIGHT TICKET STYLE -->
                         <div class="rounded-2xl overflow-hidden relative shadow-lg filter" :style="getAirlineStyle(flight.airline, flight.class).container">
-                             <div class="p-3 flex justify-between items-center relative z-10" :style="getAirlineStyle(flight.airline, flight.class).header">
-                                 <div class="flex items-center gap-3"><img :src="getAirlineLogo(flight.airline)" class="w-8 h-8 rounded-full bg-white object-contain p-0.5 shadow-sm"><span class="font-bold text-lg tracking-wider ticket-header uppercase" :style="{color: getAirlineStyle(flight.airline, flight.class).headerText}">{{ flight.airline }} <span class="text-sm font-normal opacity-80">{{ airlineData[flight.airline]?.name }}</span></span></div><span class="text-xs font-bold uppercase tracking-widest px-2" :style="{color: getAirlineStyle(flight.airline, flight.class).headerText}">{{ flight.class }}</span>
+<div class="p-3 flex justify-between items-start relative z-10" :style="getAirlineStyle(flight.airline, flight.class).header">
+                             <div class="flex items-center gap-3">
+                                 <img :src="getAirlineLogo(flight.airline)" class="w-10 h-10 rounded-full bg-white object-contain p-1 shadow-sm">
+                                 
+                                 <div class="flex flex-col items-start leading-none">
+                                     <span class="font-bold text-lg tracking-wider ticket-header uppercase mb-0.5" 
+                                           :style="{color: getAirlineStyle(flight.airline, flight.class).headerText}">
+                                         {{ flight.airline }}
+                                     </span>
+                                     <span class="text-[10px] font-bold opacity-80" 
+                                           :style="{color: getAirlineStyle(flight.airline, flight.class).headerText}">
+                                         {{ airlineData[flight.airline]?.name }}
+                                     </span>
+                                 </div>
                              </div>
-                             <div class="p-4 relative z-10" :style="{color: getAirlineStyle(flight.airline, flight.class).text}">
+                             
+                             <span class="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-black/5" 
+                                   :style="{color: getAirlineStyle(flight.airline, flight.class).headerText}">
+                                 {{ flight.class }}
+                             </span>
+                        </div>
+                                <div class="p-4 relative z-10" :style="{color: getAirlineStyle(flight.airline, flight.class).text}">
                                  <div class="flex justify-between items-center mb-4"><div><div class="text-[10px] uppercase opacity-60 font-bold">Passenger</div><div class="font-bold text-sm">{{ flight.passenger || 'MEMBERS' }}</div></div><div class="text-right"><div class="text-[10px] uppercase opacity-60 font-bold">Flight</div><div class="font-bold text-xl font-mono">{{ flight.number }}</div></div></div>
                                  <div class="flex justify-between items-end mb-4"><div><div class="text-4xl font-mono font-bold leading-none">{{ flight.depCode }}</div><div class="text-[10px] uppercase opacity-80 mt-1">{{ flight.depCity }}</div></div><div class="flex flex-col items-center flex-1 px-4 pb-1"><svg class="w-6 h-6 mb-1 opacity-70 fill-current rotate-90" viewBox="0 0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/></svg><div class="w-full border-b-2 border-dashed border-current opacity-30"></div><div class="text-[10px] font-mono mt-1 opacity-80">{{ flight.date }}</div></div><div class="text-right"><div class="text-4xl font-mono font-bold leading-none">{{ flight.arrCode }}</div><div class="text-[10px] uppercase opacity-80 mt-1">{{ flight.arrCity }}</div></div></div>
                                  <div class="grid grid-cols-3 gap-2 border-t border-dashed border-current/20 pt-3"><div><div class="text-[9px] uppercase opacity-60 font-bold">Gate</div><div class="text-2xl font-bold font-mono">{{ flight.gate || '--' }}</div></div><div class="text-center"><div class="text-[9px] uppercase opacity-60 font-bold">Boarding</div><div class="text-2xl font-bold font-mono">{{ flight.depTime }}</div></div><div class="text-right"><div class="text-[9px] uppercase opacity-60 font-bold">Seat</div><div class="text-2xl font-bold font-mono">{{ flight.seat || '--' }}</div></div></div>
@@ -1084,10 +1102,10 @@ fontFamily: {
                 
 <div v-if="!isSorting.packing" class="mb-4 flex gap-2 w-full items-center">
                     <input v-model="newPackingItem" @keydown.enter="addPackingItem" placeholder="新增物品..." 
-                           class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-3 outline-none focus:border-gold text-sm">
+                           class="flex-1 w-0 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-2 outline-none focus:border-gold text-sm font-bold shadow-inner">
                     
                     <button @click="addPackingItem" 
-                            class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-r from-yellow-100 to-amber-200 hover:from-yellow-200 hover:to-amber-300 text-yellow-900 shadow-md shadow-yellow-200/50 border border-yellow-200 flex items-center justify-center transition-all active:scale-95">
+                            class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-r from-yellow-100 to-amber-200 hover:from-yellow-200 hover:to-amber-300 text-yellow-900 shadow-md border border-yellow-200 flex items-center justify-center transition-all active:scale-95">
                         <i class="fa-solid fa-plus font-bold"></i>
                     </button>
                 </div>
@@ -2886,7 +2904,7 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
                 
                 setTimeout(initMap, 500);
             });
-            
+
             return {
                 // 狀態變數
                 currentTab, selectedDayIndex, showModal, modalType, modalTitle, form, isEditing,
