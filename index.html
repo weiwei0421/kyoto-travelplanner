@@ -1570,12 +1570,43 @@ fontFamily: {
                 </div>
 
                 <!-- Hotel, Train, Spot forms ... -->
-                <div v-if="modalType === 'hotel'" class="space-y-4">
-                    <div class="input-fancy-group"><label class="input-fancy-label">飯店名稱</label><input v-model="form.name" class="input-fancy"></div>
-                    <div class="flex gap-3"><div class="input-fancy-group flex-1"><label class="input-fancy-label">Check-in</label><input v-model="form.checkIn" type="date" class="input-fancy"></div><div class="input-fancy-group flex-1"><label class="input-fancy-label">Check-out</label><input v-model="form.checkOut" type="date" class="input-fancy"></div></div>
-                    <label class="block w-full h-32 rounded-2xl border-2 border-dashed border-slate-200 hover:border-gold bg-slate-50 flex flex-col items-center justify-center text-slate-400 cursor-pointer"><input type="file" class="hidden" accept="image/*" @change="(e) => handleImageUpload(e, 'hotel')"><i class="fa-solid fa-image mb-1"></i><span class="text-xs font-bold">上傳照片</span></label>
-                </div>
-                
+<div v-if="modalType === 'hotel'" class="space-y-4">
+                    <div class="input-fancy-group">
+                        <label class="input-fancy-label">飯店名稱</label>
+                        <input v-model="form.name" class="input-fancy" placeholder="e.g. 大阪希爾頓">
+                    </div>
+                    
+                    <div class="input-fancy-group">
+                        <label class="input-fancy-label">地址 (Address)</label>
+                        <input v-model="form.address" class="input-fancy" placeholder="輸入飯店地址以利導航">
+                    </div>
+                    
+                    <div class="input-fancy-group">
+                        <label class="input-fancy-label">電話 (Phone)</label>
+                        <input v-model="form.phone" type="tel" class="input-fancy" placeholder="+81 6-1234-5678">
+                    </div>
+
+                    <div class="flex gap-3">
+                        <div class="input-fancy-group flex-1">
+                            <label class="input-fancy-label">Check-in</label>
+                            <input v-model="form.checkIn" type="date" class="input-fancy">
+                        </div>
+                        <div class="input-fancy-group flex-1">
+                            <label class="input-fancy-label">Check-out</label>
+                            <input v-model="form.checkOut" type="date" class="input-fancy">
+                        </div>
+                    </div>
+                    
+                    <div class="input-fancy-group">
+                        <label class="input-fancy-label">備註 (Booking Ref/Notes)</label>
+                        <input v-model="form.notes" class="input-fancy" placeholder="訂房代號或其他備註...">
+                    </div>
+
+                    <label class="block w-full h-32 rounded-2xl border-2 border-dashed border-slate-200 hover:border-gold bg-slate-50 flex flex-col items-center justify-center text-slate-400 cursor-pointer">
+                        <input type="file" class="hidden" accept="image/*" @change="(e) => handleImageUpload(e, 'hotel')">
+                        <i class="fa-solid fa-image mb-1"></i><span class="text-xs font-bold">上傳照片</span>
+                    </label>
+                </div>                
                  <!-- Subway Map Upload Form -->
                 <div v-if="modalType === 'subway'" class="space-y-4">
                     <div class="input-fancy-group"><label class="input-fancy-label">地圖名稱</label><input v-model="form.title" class="input-fancy" placeholder="e.g. 大阪地鐵圖"></div>
