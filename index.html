@@ -1082,11 +1082,16 @@ fontFamily: {
                     </button>
                 </div>
                 
-                <div v-if="!isSorting.packing" class="mb-4 flex gap-2">
-                    <input v-model="newPackingItem" @keydown.enter="addPackingItem" placeholder="新增物品..." class="flex-1 bg-white border border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-gold">
-                    <button @click="addPackingItem" class="w-12 rounded-xl bg-gradient-to-r from-yellow-100 to-amber-200 hover:from-yellow-200 hover:to-amber-300 text-yellow-900 shadow-md shadow-yellow-200/50 border border-yellow-200 flex items-center justify-center transition-all active:scale-95"><i class="fa-solid fa-plus font-bold"></i></button>
-                </div>
+<div v-if="!isSorting.packing" class="mb-4 flex gap-2 w-full items-center">
+                    <input v-model="newPackingItem" @keydown.enter="addPackingItem" placeholder="新增物品..." 
+                           class="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-3 py-3 outline-none focus:border-gold text-sm">
                     
+                    <button @click="addPackingItem" 
+                            class="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-r from-yellow-100 to-amber-200 hover:from-yellow-200 hover:to-amber-300 text-yellow-900 shadow-md shadow-yellow-200/50 border border-yellow-200 flex items-center justify-center transition-all active:scale-95">
+                        <i class="fa-solid fa-plus font-bold"></i>
+                    </button>
+                </div>
+                                    
                 <div id="packing-list" class="space-y-2">
                     <div v-for="(item, idx) in packingList" :key="item.id" class="bg-white p-4 rounded-xl shadow-sm flex items-center gap-3 group" :class="isSorting.packing ? '' : 'cursor-pointer'" @click="!isSorting.packing && togglePacking(packingList.indexOf(item))">
                         <!-- Drag Handle -->
