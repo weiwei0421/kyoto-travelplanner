@@ -199,11 +199,12 @@ fontFamily: {
             box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
         }
         
-        /* Font Hand override for titles */
+/* Font Hand override for titles */
         h1, h2, .hand-font {
-            font-family: 'ChenYuluoyan', 'M PLUS Rounded 1c', sans-serif !important;
+            /* 強制使用手寫體，如果失敗則退回圓體 */
+            font-family: 'ZCOOL KuaiLe', 'M PLUS Rounded 1c', sans-serif !important;
         }
-
+        
         /* --- 圖示發光特效 (Icon Glow) --- */
 .icon-glow {
     /* 使用 drop-shadow 讓光暈沿著圖示邊緣產生 */
