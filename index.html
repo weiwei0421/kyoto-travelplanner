@@ -29,6 +29,9 @@
     <!-- Custom Handwriting Font -->
     <link href="https://cdn.jsdelivr.net/npm/chenyuluoyan-thin@1.0.0/chenyuluoyan.css" rel="stylesheet">
 
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -364,7 +367,17 @@ fontFamily: {
         </aside>
 
         <!-- === Right Content Area === -->
-        <main class="flex-1 relative overflow-y-auto no-scrollbar bg-bg" id="mainContent">
+ 
+        <main class="flex-1 relative overflow-y-auto no-scrollbar bg-bg" id="mainContent" 
+              @touchstart="handleTouchStart" 
+              @touchmove="handleTouchMove" 
+              @touchend="handleTouchEnd">
+
+            <div id="pull-refresh-loader" class="w-full flex justify-center items-center overflow-hidden transition-all duration-300" style="height: 0px; opacity: 0;">
+                <div class="bg-white p-2 rounded-full shadow-md text-gold">
+                    <i class="fa-solid fa-rotate-right fa-spin text-xl"></i>
+                </div>
+            </div>
             
             <!-- ... (EMERGENCY and AI CHAT tabs remain unchanged) ... -->
             <!-- === TAB: EMERGENCY (SOS) === -->
@@ -1632,7 +1645,31 @@ fontFamily: {
     const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 
     createApp({
-        setup() {
+        setup() 
+        {
+
+            // --- ★★★ Firebase 設定區 (請填入你的資料) ★★★ ---
+ const firebaseConfig = {
+    apiKey: "AIzaSyBgyjm9y3sIUiizDDvg9JJmLSzQqA-r89Q",
+    authDomain: "kyoto-osaka-426bd.firebaseapp.com",
+    databaseURL: "https://kyoto-osaka-426bd-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "kyoto-osaka-426bd",
+    storageBucket: "kyoto-osaka-426bd.firebasestorage.app",
+    messagingSenderId: "123754365058",
+    appId: "1:123754365058:web:27622e0d0cae72c5fb749b",
+    measurementId: "G-0XZFQ6GSPL"
+  };
+            
+            // 初始化 Firebase
+            // 避免重複初始化報錯
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            const db = firebase.database();
+            const tripId = 'Osaka_Kyoto_Team_2025'; // 這是你們的「房間號碼」，大家都一樣才看得到彼此
+            
+            // 防止無限迴圈的鎖
+            const isRemoteUpdate = ref(false);
             // ... (Previous setup logic unchanged) ...
             const currentTab = ref('itinerary');
             const selectedDayIndex = ref(0);
@@ -1838,6 +1875,51 @@ fontFamily: {
             
             const closeModal = () => {
                 showModal.value = false;
+            };
+
+            // --- ★★★ 新增功能 1：下拉刷新邏輯 (Pull to Refresh) ★★★ ---
+            const pullStart = ref(0);
+            const isPulling = ref(false);
+
+            const handleTouchStart = (e) => {
+                const mainEl = document.getElementById('mainContent');
+                if (mainEl.scrollTop === 0) {
+                    pullStart.value = e.touches[0].clientY;
+                    isPulling.value = true;
+                }
+            };
+
+            const handleTouchMove = (e) => {
+                if (!isPulling.value) return;
+                const touchY = e.touches[0].clientY;
+                const pullDistance = touchY - pullStart.value;
+                const loader = document.getElementById('pull-refresh-loader');
+
+                // 只有在頂部且往下拉時才觸發
+                if (pullDistance > 0 && document.getElementById('mainContent').scrollTop <= 0) {
+                    // 增加阻尼感，不要拉太快
+                    const move = Math.min(pullDistance * 0.4, 80); 
+                    loader.style.height = `${move}px`;
+                    loader.style.opacity = Math.min(move / 50, 1);
+                }
+            };
+
+            const handleTouchEnd = (e) => {
+                if (!isPulling.value) return;
+                isPulling.value = false;
+                const loader = document.getElementById('pull-refresh-loader');
+                
+                // 如果拉動超過 60px，就觸發刷新
+                if (parseInt(loader.style.height) > 60) {
+                    loader.style.height = '60px'; // 停留在顯示狀態
+                    setTimeout(() => {
+                        window.location.reload(); // 重新整理頁面
+                    }, 500);
+                } else {
+                    // 拉不夠長，彈回去
+                    loader.style.height = '0px';
+                    loader.style.opacity = '0';
+                }
             };
 
 // 1. 新增控制確認視窗的變數
@@ -2653,9 +2735,40 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             const selectCurrency = (c) => { currencySearch.value = c; calcCurrency.value = c; showCurrencyList.value = false; };
             const locateMe = () => initMap();
             const viewMap = (map) => { zoomedImage.value = map.image; };
-            const saveToLocal = () => { localStorage.setItem('tripData_v5', JSON.stringify({ trip: tripData.value, itinerary: itinerary.value, flights: flights.value, hotels: hotels.value, expenses: expenses.value, packing: packingList.value, maps: subwayMaps.value, trains: trainTickets.value, tickets: collectedTickets.value, phrases: jpPhrases.value })); };
+// --- ★★★ 新版存檔函式：分流處理 ★★★ ---
+            const saveToLocal = () => {
+                // 如果是雲端更新觸發的變動，不要再寫回雲端 (防止無限迴圈)
+                if (isRemoteUpdate.value) return;
+
+                // 1. 私有資料：存每個人自己的手機 (Local Storage)
+                const myPrivateData = {
+                    packing: packingList.value,
+                    memories: memories.value,
+                    // 設定類也可以放這
+                };
+                localStorage.setItem('trip_private_v1', JSON.stringify(myPrivateData));
+
+                // 2. 共用資料：傳送到 Firebase 給所有人看
+                const sharedData = {
+                    trip: tripData.value,          // 行程標題/日期
+                    itinerary: itinerary.value,    // 行程列表
+                    hotels: hotels.value,          // 住宿
+                    expenses: expenses.value,      // 錢包/記帳
+                    flights: flights.value,        // 航班
+                    tickets: collectedTickets.value, // 票券夾
+                    trains: trainTickets.value,    // 車票
+                    maps: subwayMaps.value,        // 地圖
+                    phrases: jpPhrases.value,      // 翻譯
+                    lastUpdated: new Date().toISOString() // 壓個時間戳記
+                };
+
+                // 寫入雲端 (使用 set 會覆蓋該路徑下的資料)
+                db.ref(tripId).set(sharedData).catch(err => {
+                    console.error("同步失敗:", err);
+                    alert("同步失敗！請檢查網路連線");
+                });
+            };
             const generateAITip = () => { const tips = ["嵐山小火車建議提前一個月預訂", "清水寺周邊坂道多建議穿好走的鞋", "搭乘公車通常後門上車前門付款", "USJ 快速通關券建議開賣當天搶購"]; tripData.value.days[selectedDayIndex.value].tips = tips[Math.floor(Math.random() * tips.length)]; };
-            
             const sendAIMessage = () => {
                 const text = aiInput.value.trim();
                 if (!text) return;
@@ -2683,20 +2796,57 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             const getSticker = (id) => { const seed = getPseudoRandom(id); return stickers[seed % stickers.length]; };
             const getStickerStyle = (id) => { const seed = getPseudoRandom(id); const rotate = (seed % 60) - 30; return { transform: `rotate(${rotate}deg)` }; };
 
+// --- ★★★ 新版啟動函式：讀取私有 + 監聽雲端 ★★★ ---
             onMounted(() => {
+                // 1. 讀取「私有」資料 (行李、回憶)
                 try {
-                    const saved = localStorage.getItem('tripData_v5');
-                    if (saved) {
-                        const d = JSON.parse(saved);
-                        tripData.value = d.trip || tripData.value; itinerary.value = d.itinerary || []; flights.value = d.flights || []; hotels.value = d.hotels || []; expenses.value = d.expenses || []; packingList.value = d.packing || []; subwayMaps.value = d.maps || []; trainTickets.value = d.trains || []; collectedTickets.value = d.tickets || [];
-                        const sanitize = (arr) => { if(!arr) return []; arr.forEach(item => { if(!item.id) item.id = Date.now().toString() + Math.random().toString().slice(2,5); else item.id = String(item.id); }); return arr; };
-                        if(d.phrases) jpPhrases.value = d.phrases;
-                        jpPhrases.value = sanitize(jpPhrases.value); itinerary.value = sanitize(itinerary.value); flights.value = sanitize(flights.value); hotels.value = sanitize(hotels.value); expenses.value = sanitize(expenses.value); subwayMaps.value = sanitize(subwayMaps.value); trainTickets.value = sanitize(trainTickets.value); collectedTickets.value = sanitize(collectedTickets.value); packingList.value = sanitize(packingList.value);
+                    const localSaved = localStorage.getItem('trip_private_v1');
+                    if (localSaved) {
+                        const d = JSON.parse(localSaved);
+                        packingList.value = d.packing || [];
+                        memories.value = d.memories || [];
                     }
-                    fetchRates(); setTimeout(initMap, 500);
-                } catch(e) { console.error("Load Error", e); }
-            });
+                } catch (e) { console.error("Local Load Error", e); }
 
+                // 2. 建立雲端監聽 (Realtime Listener)
+                // 只要 Firebase 上的資料一變 (不管是誰改的)，這裡就會收到通知
+                const dataRef = db.ref(tripId);
+                
+                dataRef.on('value', (snapshot) => {
+                    const remoteData = snapshot.val();
+                    if (remoteData) {
+                        // 開啟鎖，避免寫入觸發無限迴圈
+                        isRemoteUpdate.value = true;
+
+                        // 更新 Vue 的資料
+                        tripData.value = remoteData.trip || tripData.value;
+                        
+                        // 處理陣列 (如果雲端是空的，要給空陣列，不然會報錯)
+                        itinerary.value = remoteData.itinerary || [];
+                        flights.value = remoteData.flights || [];
+                        hotels.value = remoteData.hotels || [];
+                        expenses.value = remoteData.expenses || [];
+                        subwayMaps.value = remoteData.maps || [];
+                        trainTickets.value = remoteData.trains || [];
+                        collectedTickets.value = remoteData.tickets || [];
+                        jpPhrases.value = remoteData.phrases || jpPhrases.value;
+
+                        // 匯率還是要抓新的
+                        fetchRates();
+                        
+                        // 地圖初始化 (如果有切換到地圖頁)
+                        if(currentTab.value === 'itinerary') setTimeout(initMap, 500);
+
+                        // 等 Vue 更新完畢後，解鎖
+                        nextTick(() => {
+                            isRemoteUpdate.value = false;
+                        });
+                    }
+                });
+                
+                // 預設初始化
+                setTimeout(initMap, 500);
+            });
             return {
                 // 狀態變數
                 currentTab, selectedDayIndex, showModal, modalType, modalTitle, form, isEditing,
@@ -2713,7 +2863,7 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
                 handleImageUpload, editDayTitle, editActivity,
                 addExternalLink, toggleZoom, viewMap, locateMe, sendAIMessage, generateAITip, fetchRates, selectCurrency,
                 addTag, removeTag, switchToEdit, cancelEdit, toggleCheckIn, openCheckInModal,
-                toggleMemberDetail, addPackingItem, togglePacking, deletePacking, 
+                toggleMemberDetail, addPackingItem, togglePacking, deletePacking, handleTouchStart, handleTouchMove, handleTouchEnd,
                 
                 // ★★★ 這是新的刪除函式，一定要有這行！ ★★★
                 killItem,  showDeleteConfirm, // 控制確認視窗顯示
