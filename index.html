@@ -2869,63 +2869,24 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             };
 
             const generateAITip = () => { const tips = ["嵐山小火車建議提前一個月預訂", "清水寺周邊坂道多建議穿好走的鞋", "搭乘公車通常後門上車前門付款", "USJ 快速通關券建議開賣當天搶購"]; tripData.value.days[selectedDayIndex.value].tips = tips[Math.floor(Math.random() * tips.length)]; };
-// --- ★★★ AI 管家大腦 (Gemini API) ★★★ ---
-            
-            // ⚠️ 請填入你的 Google Gemini API Key
-            const GEMINI_API_KEY = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}'; 
-
-            const sendAIMessage = async () => {
+            const sendAIMessage = () => {
                 const text = aiInput.value.trim();
                 if (!text) return;
-
-                // 1. 顯示使用者訊息
                 aiMessages.value.push({ role: 'user', text });
                 aiInput.value = '';
                 isAiThinking.value = true;
                 nextTick(() => { const box = document.getElementById('aiChatBox'); if(box) box.scrollTop = box.scrollHeight; });
-
-                try {
-                    // 2. 準備給 AI 的「背景知識」 (讓它知道你的行程)
-                    // 我們把目前的行程表轉成文字，餵給 AI 吃，這樣它才知道你在哪
-                    const context = `
-                        你是一個專業的關西旅遊管家 (大阪、京都)。
-                        這是使用者的目前行程表資料：${JSON.stringify(tripData.value)}。
-                        這是詳細行程：${JSON.stringify(itinerary.value)}。
-                        
-                        使用者現在問你："${text}"。
-                        請用繁體中文，親切、簡短的口吻回答。如果使用者問行程，請根據上述資料回答；如果問景點推薦或交通，請運用你的知識庫回答。
-                        回答請不要使用 Markdown 格式，純文字即可。
-                    `;
-
-                    // 3. 呼叫 Google Gemini API
-                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{
-                                parts: [{ text: context }]
-                            }]
-                        })
-                    });
-
-                    const data = await response.json();
-                    
-                    // 4. 解析 AI 回答
-                    let reply = "抱歉，管家現在連不上線...";
-                    if (data.candidates && data.candidates[0].content) {
-                        reply = data.candidates[0].content.parts[0].text;
-                    }
-
-                    // 5. 顯示 AI 回覆
+                setTimeout(() => {
+                    let reply = '收到，這是一個很棒的提議。作為您的管家，我會建議您留意當地的營業時間。';
+                    if (text.includes('天氣')) reply = '近期關西地區早晚溫差較大，建議您攜帶薄外套。若前往京都山區，氣溫會再低一些。';
+                    else if (text.includes('交通') || text.includes('地鐵')) reply = '在大阪，地鐵是最便捷的交通方式；前往京都各景點則推薦利用巴士或電車。建議您準備好 ICOCA 卡，能讓旅程更順暢。';
+                    else if (text.includes('吃') || text.includes('美食')) reply = '大阪是「天下的廚房」，章魚燒與大阪燒不可錯過；京都則以精緻的懷石料理與湯豆腐聞名。請問您偏好哪種類型的料理呢？';
+                    else if (text.includes('環球') || text.includes('USJ')) reply = '前往環球影城建議提早入園。若您計畫進入任天堂世界，請務必確認是否需要整理券，管家可以為您留意相關資訊。';
+                    else if (text.includes('你好') || text.includes('嗨')) reply = '您好！祝您在關西的旅途愉快順心。有任何吩咐請隨時告訴我。';
                     aiMessages.value.push({ role: 'ai', text: reply });
-
-                } catch (error) {
-                    console.error("AI Error:", error);
-                    aiMessages.value.push({ role: 'ai', text: "管家大腦當機了，請檢查 API Key 或網路連線。" });
-                } finally {
                     isAiThinking.value = false;
                     nextTick(() => { const box = document.getElementById('aiChatBox'); if(box) box.scrollTop = box.scrollHeight; });
-                }
+                }, 1500);
             };
             // ... (Sticker Logic) ...
             const stickers = ['🌸', '⛩️', '🍱', '🍵', '🦌', '🚄', '🏯', '✨', '🍙', '🍁', '📸', '🎋', '🎏', '👺', '🐙', '🦀', '🍜', '🚌'];
