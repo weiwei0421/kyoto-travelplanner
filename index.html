@@ -1699,6 +1699,23 @@ fontFamily: {
                 </template>
 
             </div>
+        </div>
+    </div>
+
+    <!-- Zoomed Image Overlay -->
+    <div v-if="zoomedImage" 
+         class="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-2 cursor-zoom-out transition-opacity duration-300"
+         @click="zoomedImage = null">
+        
+        <img :src="zoomedImage" 
+             class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+             @click.stop> 
+        <button @click="zoomedImage = null" 
+                class="absolute top-6 right-6 w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 backdrop-blur-md transition-all">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+    </div>
+
 
 <script>
     const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
