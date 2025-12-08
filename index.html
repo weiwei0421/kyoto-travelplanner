@@ -3002,8 +3002,65 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
                 });
             };
 
-            const generateAITip = () => { const tips = ["嵐山小火車建議提前一個月預訂", "清水寺周邊坂道多建議穿好走的鞋", "搭乘公車通常後門上車前門付款", "USJ 快速通關券建議開賣當天搶購"]; tripData.value.days[selectedDayIndex.value].tips = tips[Math.floor(Math.random() * tips.length)]; };
-// === 真・AI 對話函式 (Gemini 版) ===
+// === AI 自動生成旅遊 TIPS (針對當日行程) ===
+            const generateAITip = async () => {
+                const dayIdx = selectedDayIndex.value;
+                const dayData = tripData.value.days[dayIdx];
+                
+                // 1. 抓出當天的所有景點名稱
+                // (利用 computed 已經算好的 currentDayItinerary)
+                const activities = currentDayItinerary.value
+                    .map(item => item.title)
+                    .join('、');
+
+                // 2. 準備給 AI 的資料
+                const dateInfo = `${dayData.date} (${dayData.weekday})`;
+                const cityInfo = getWeatherCityForDay(dayIdx).name; // 取得是大阪、京都還是京丹後
+                const content = activities || dayData.desc || "自由活動"; // 如果沒行程就用描述
+
+                // 3. UI 顯示「思考中」狀態
+                const oldTip = dayData.tips;
+                dayData.tips = "✨ AI 正在分析您的路線...";
+
+                try {
+                    // 4. 呼叫 Gemini (使用你確認可用的 2.5 Flash)
+                    const genAI = new GoogleGenerativeAI(API_KEY);
+                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+                    const prompt = `
+                        你是一位貼心的日本關西旅遊管家。
+                        使用者在 ${dateInfo} 的行程位於「${cityInfo}」。
+                        
+                        當天的主要行程景點有：${content}。
+
+                        請根據這些「具體景點」的地理特性、人潮狀況或交通眉角，
+                        給我一個「超實用、像在地人一樣」的旅遊小提醒 (Tip)。
+
+                        限制：
+                        1. 繁體中文。
+                        2. 只要一句話 (30字以內)。
+                        3. 語氣活潑、友善。
+                        4. 不要給「記得帶水」這種通用廢話，要針對景點給建議。
+                        例如：去清水寺就說「坂道很多建議穿好走的鞋」，去環球就說「建議一入園先衝瑪利歐」。
+                    `;
+
+                    const result = await model.generateContent(prompt);
+                    const response = await result.response;
+                    const aiTip = response.text().trim();
+
+                    // 5. 更新成功！
+                    dayData.tips = aiTip;
+                    saveToLocal(); // 順便存檔
+
+                } catch (error) {
+                    console.error("Tip Gen Error:", error);
+                    dayData.tips = "AI 連線有點卡，請再按一次魔杖 🪄";
+                    // 失敗的話，2秒後復原，讓使用者可以重試
+                    setTimeout(() => { if(dayData.tips.includes("連線有點卡")) dayData.tips = oldTip; }, 2000);
+                }
+            };
+            
+            // === 真・AI 對話函式 (Gemini-2.5-flash版) ===
             const sendAIMessage = async () => {
                 // 1. 檢查輸入框有沒有字
                 const text = aiInput.value.trim();
