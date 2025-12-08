@@ -720,8 +720,11 @@ fontFamily: {
                             <span class="text-xs mt-1 text-slate-400 font-medium">(存於本機)</span>
                         </div>
         
-                        <img v-else :src="tripData.vjwImage" class="w-full h-full object-contain p-2">
-        
+<img v-else 
+     :src="tripData.vjwImage" 
+     class="w-full h-full object-contain p-2 cursor-zoom-in relative z-10"
+     @click.prevent.stop="zoomedImage = tripData.vjwImage">
+             
                         <button v-if="tripData.vjwImage" @click.stop="tripData.vjwImage = null" class="absolute top-4 right-4 w-8 h-8 bg-black/60 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm hover:bg-black/80">
                             <i class="fa-solid fa-xmark text-sm"></i>
                         </button>
