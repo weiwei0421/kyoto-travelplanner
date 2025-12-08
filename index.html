@@ -32,6 +32,17 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
+    <!-- Import Map for Gemini -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@google/genai": "https://esm.run/@google/genai"
+      }
+    }
+
+    </script>
+
+
     <script>
         tailwind.config = {
             theme: {
@@ -1702,22 +1713,56 @@ fontFamily: {
         </div>
     </div>
 
-    <!-- Zoomed Image Overlay -->
-    <div v-if="zoomedImage" 
-         class="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex items-center justify-center p-2 cursor-zoom-out transition-opacity duration-300"
-         @click="zoomedImage = null">
-        
-        <img :src="zoomedImage" 
-             class="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-             @click.stop> 
+<div v-if="zoomedImage" 
+     class="fixed inset-0 z-[200] bg-slate-900/95 backdrop-blur-sm flex flex-col overflow-hidden"
+     @mouseup="stopMapDrag" 
+     @touchend="stopMapDrag" 
+     @mouseleave="stopMapDrag">
+
+    <div class="flex justify-between items-center p-4 z-50 bg-gradient-to-b from-black/50 to-transparent absolute top-0 w-full pointer-events-none">
+        <h3 class="text-white font-bold drop-shadow-md pointer-events-auto">
+            <i class="fa-solid fa-map-location-dot mr-2"></i>檢視地圖
+        </h3>
         <button @click="zoomedImage = null" 
-                class="absolute top-6 right-6 w-12 h-12 bg-white/20 text-white rounded-full flex items-center justify-center hover:bg-white/30 backdrop-blur-md transition-all">
+                class="w-10 h-10 bg-white/10 text-white rounded-full flex items-center justify-center hover:bg-white/30 backdrop-blur-md transition-all pointer-events-auto">
             <i class="fa-solid fa-xmark text-xl"></i>
         </button>
     </div>
 
+    <div class="flex-1 w-full h-full flex items-center justify-center overflow-hidden cursor-move relative"
+         @mousedown="startMapDrag"
+         @touchstart="startMapDrag"
+         @mousemove="onMapDrag"
+         @touchmove="onMapDrag"
+         @wheel="handleMapWheel">
+        
+        <img :src="zoomedImage" 
+             class="max-w-none transition-transform duration-75 origin-center select-none"
+             :style="{ 
+                 transform: `translate(${mapPos.x}px, ${mapPos.y}px) scale(${mapScale})`,
+                 cursor: isDraggingMap ? 'grabbing' : 'grab'
+             }"
+             draggable="false"> </div>
 
-<script>
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-4 z-50">
+        <button @click="zoomMap(-0.5)" class="w-12 h-12 rounded-full bg-white/90 text-slate-800 shadow-lg flex items-center justify-center active:scale-90 transition-transform">
+            <i class="fa-solid fa-minus"></i>
+        </button>
+        
+        <div class="bg-black/50 text-white px-3 py-1 rounded-full flex items-center text-xs font-mono backdrop-blur-sm border border-white/20">
+            {{ Math.round(mapScale * 100) }}%
+        </div>
+
+        <button @click="zoomMap(0.5)" class="w-12 h-12 rounded-full bg-gold text-white shadow-lg flex items-center justify-center active:scale-90 transition-transform">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+
+</div>
+
+<script type="module">
+    import { GoogleGenAI } from "@google/genai";
+
     const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
 
     createApp({
@@ -1802,6 +1847,57 @@ fontFamily: {
             const isZoomedIn = ref(false);
             const newPackingItem = ref("");
             const expandedMember = ref(null);
+
+            // --- 地圖縮放與拖曳變數 ---
+const mapScale = ref(1);        // 目前縮放倍率
+const mapPos = ref({ x: 0, y: 0 }); // 目前位移座標
+const isDraggingMap = ref(false); // 是否正在拖曳
+const dragStart = ref({ x: 0, y: 0 }); // 拖曳起始點
+
+// 重置地圖狀態 (每次打開時歸零)
+const resetMapState = () => {
+    mapScale.value = 1;
+    mapPos.value = { x: 0, y: 0 };
+};
+
+// 監聽圖片變數，只要打開圖片就重置狀態
+watch(zoomedImage, (val) => {
+    if (val) resetMapState();
+});
+
+// --- 功能函式 ---
+const handleMapWheel = (e) => {
+    e.preventDefault();
+    // 滾輪縮放邏輯 (限制最小 0.5倍，最大 5倍)
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    const newScale = Math.max(0.5, Math.min(5, mapScale.value + delta));
+    mapScale.value = newScale;
+};
+
+const startMapDrag = (e) => {
+    isDraggingMap.value = true;
+    // 兼容滑鼠與觸控
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    dragStart.value = { x: clientX - mapPos.value.x, y: clientY - mapPos.value.y };
+};
+
+const onMapDrag = (e) => {
+    if (!isDraggingMap.value) return;
+    e.preventDefault(); // 防止手機瀏覽器下拉刷新干擾
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    mapPos.value = { x: clientX - dragStart.value.x, y: clientY - dragStart.value.y };
+};
+
+const stopMapDrag = () => {
+    isDraggingMap.value = false;
+};
+
+// 按鈕縮放控制
+const zoomMap = (delta) => {
+    mapScale.value = Math.max(0.5, Math.min(5, mapScale.value + delta));
+};
             
             // AI Chat State
             const aiInput = ref("");
@@ -3003,7 +3099,8 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
                 getPolaroidStyle, getSticker, getStickerStyle, getPseudoRandom,
                 expenseTypes, paymentMethods, splitModes,
                 toggleAdvanceMember, advanceTotal, getMemberTransactions, getMemberTotalConsumption, getSettlementStats,
-                viewMemory,
+                viewMemory, mapScale, mapPos, isDraggingMap, handleMapWheel, 
+                startMapDrag, onMapDrag, stopMapDrag, zoomMap,
                 
                 // Sorting
                 moveItem, moveInFilteredList, isSorting, toggleSort
