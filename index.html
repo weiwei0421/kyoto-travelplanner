@@ -2729,66 +2729,83 @@ if (n.includes('starlux') || n.includes('星宇')) { isStarlux = true; colors = 
             const addExternalLink = () => { if(!form.value.externalLinks) form.value.externalLinks = []; form.value.externalLinks.push({name:'', url:''}); };
 
             // === SORTING LOGIC (Using SortableJS) ===
+// 1. 抽離出來的 Sortable 建立函式 (負責重生用)
+            const createSortableInstance = (key, listRef, listContainerId) => {
+                nextTick(() => {
+                    const el = document.getElementById(listContainerId);
+                    if (!el) return;
+
+                    // 防呆：如果有舊的實體，先殺掉
+                    if (sortableInstance) {
+                        try { sortableInstance.destroy(); } catch (e) { }
+                    }
+
+                    sortableInstance = new Sortable(el, {
+                        handle: '.drag-handle', // 指定只能拉把手
+                        animation: 150,
+                        ghostClass: 'sortable-ghost',
+                        dragClass: 'sortable-drag',
+                        // ★★★ 關鍵修改在這裡：onEnd 結束後重生 ★★★
+                        onEnd: (evt) => {
+                            // 1. 處理資料搬移邏輯
+                            if (key === 'itinerary') {
+                                // 針對行程 (因為有 computed 依賴，邏輯較複雜)
+                                const dayItems = [...currentDayItinerary.value];
+                                const movedItem = dayItems.splice(evt.oldIndex, 1)[0];
+                                dayItems.splice(evt.newIndex, 0, movedItem);
+                                
+                                const otherDaysItems = itinerary.value.filter(i => i.dayIndex !== selectedDayIndex.value);
+                                itinerary.value = [...otherDaysItems, ...dayItems]; // 更新主資料
+                            } 
+                            else if (key === 'memories') {
+                                // 針對回憶 (Memories)
+                                const memItems = [...memories.value];
+                                const movedItem = memItems.splice(evt.oldIndex, 1)[0];
+                                memItems.splice(evt.newIndex, 0, movedItem);
+                                
+                                const nonMemItems = itinerary.value.filter(i => !i.checkedIn);
+                                itinerary.value = [...nonMemItems, ...memItems]; // 更新主資料
+                            } 
+                            else {
+                                // 針對普通列表 (Packing, Maps, etc.)
+                                const item = listRef.value.splice(evt.oldIndex, 1)[0];
+                                listRef.value.splice(evt.newIndex, 0, item);
+                            }
+
+                            // 2. 存檔
+                            saveToLocal();
+
+                            // 3. ★★★ 核心解法：等待 Vue 更新 DOM 後，重生 Sortable ★★★
+                            // 這樣才能繼續拖曳第二次
+                            nextTick(() => {
+                                createSortableInstance(key, listRef, listContainerId);
+                            });
+                        }
+                    });
+                });
+            };
+
+            // 2. 按鈕觸發的開關函式
             const toggleSort = (key, listRef, listContainerId) => {
                 if (isSorting.value[key]) {
-                    // SAVE MODE
-                    if(sortableInstance) sortableInstance.destroy();
+                    // === 關閉排序模式 ===
+                    if (sortableInstance) {
+                        sortableInstance.destroy();
+                        sortableInstance = null;
+                    }
                     isSorting.value[key] = false;
                     saveToLocal();
                 } else {
-                    // START SORT MODE
+                    // === 開啟排序模式 ===
+                    // 先關閉其他開啟中的排序 (避免衝突)
+                    Object.keys(isSorting.value).forEach(k => isSorting.value[k] = false);
+                    
                     isSorting.value[key] = true;
-                    nextTick(() => {
-                        const el = document.getElementById(listContainerId);
-                        if (!el) return;
-                        
-                        sortableInstance = new Sortable(el, {
-                            handle: '.drag-handle',
-                            animation: 150,
-                            ghostClass: 'sortable-ghost',
-                            dragClass: 'sortable-drag',
-                            onEnd: (evt) => {
-                                // For basic arrays (Packing, Subway, Flights, Trains, Hotels)
-                                if (key !== 'itinerary' && key !== 'memories') {
-                                    const item = listRef.value.splice(evt.oldIndex, 1)[0];
-                                    listRef.value.splice(evt.newIndex, 0, item);
-                                } else if (key === 'itinerary') {
-                                    // For Itinerary (Computed Filtered View)
-                                    // 1. Get the item that was moved from the current filtered view
-                                    const dayItems = [...currentDayItinerary.value]; // Copy of current view state
-                                    const movedItem = dayItems.splice(evt.oldIndex, 1)[0];
-                                    dayItems.splice(evt.newIndex, 0, movedItem);
-                                    
-                                    // 2. Reconstruct global itinerary: Keep other days as is, replace current day items with new order
-                                    // Filter out current day items from main array
-                                    const otherDaysItems = itinerary.value.filter(i => i.dayIndex !== selectedDayIndex.value);
-                                    
-                                    // 3. Clear and push back. 
-                                    // Note: This puts current day items at the end of the main array, which is fine functionally but changes internal order.
-                                    // To preserve "Day 1 items before Day 2", we would need more complex logic, but simple append works for display since we filter by dayIndex.
-                                    itinerary.value = [...otherDaysItems, ...dayItems];
-                                } else if (key === 'memories') {
-                                    // For Memories (Computed Filtered View)
-                                    // Similar logic: Reorder the subset, then sync back to main list
-                                    // This assumes user wants to change display order of memories.
-                                    // Since memories are just a view of checked-in itinerary items, reordering them *here* implies reordering them in the main list relative to each other.
-                                    const memItems = [...memories.value];
-                                    const movedItem = memItems.splice(evt.oldIndex, 1)[0];
-                                    memItems.splice(evt.newIndex, 0, movedItem);
-                                    
-                                    // Identify non-memory items
-                                    const nonMemItems = itinerary.value.filter(i => !i.checkedIn);
-                                    
-                                    // Reconstruct. Note: This loses the chronological interleave of non-checked-in items.
-                                    // If strict chronological order matters, this manual sort breaks it. But user asked for manual sort.
-                                    itinerary.value = [...nonMemItems, ...memItems];
-                                }
-                            }
-                        })
-                    })
+                    // 呼叫建立函式
+                    createSortableInstance(key, listRef, listContainerId);
                 }
             };
-
+            
             // Replaces moveItem & moveInFilteredList
             const moveItem = (array, index, direction) => { saveToLocal(); };
             const moveInFilteredList = (mainArray, filteredArray, item, direction) => { saveToLocal(); };
